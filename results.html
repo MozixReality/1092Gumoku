@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <link rel="stylesheet" href="./gobang.css">
+    <title>Gumoku Final Results</title>
+  </head>
+  <body>
+    <h1>Gumoku Final Results</h1>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+
+  </body>
+  <!-- The Modal -->
+  <div id="myModal" class="modal">
+
+    <!-- Modal content -->
+    <div class="modal-content" style="max-width: 800px;">
+      <span class="close">&times;</span>
+      <h1 id="title" style="width: 700px; float: left;">Title</h1>
+      <div style="margin-top: 20px;">
+        <h4 style="float: left; width: 100px;">Winner</h4>
+        <h4 id="winner" style="float: left;">Winner</h4>
+      </div>
+      <div>
+        <h4 style="float: left; width: 100px;">Result</h4>
+        <h4 id="result" style="float: left;">Result</h4>
+      </div>
+      <h2 style="margin-top: 20px;">Process</h2>
+      <div>
+        <div id="process" style="font-size: large; float: left;">Some text in the Modal..</div>
+        <div class="chessboard" style="float: right;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+</html>
+<script>
+  var results;
+  var people = [];
+  var win_second;
+  var Cnt_second;
+  fetch("./results.json")
+  .then(response => response.json())
+  .then(json => {
+    results = json;
+  }).then(() => {
+    $.each(results, function (key, item) {
+      let student = String(key).split('.pl')[0];
+      people.push(String(student));
+    });
+    people.sort();
+    win_second = people.reduce((acc,curr)=> (acc[curr]=0, acc),{});
+    Cnt_second = people.reduce((acc,curr)=> (acc[curr]=0, acc),{});
+    document.body.appendChild(genTable(people));
+    // 後手勝率
+    for(let i in win_second){
+      let rate = (win_second[i] / (people.length-1)).toFixed(3)
+      $("#second" + i).html(rate)
+      let cnt = (Cnt_second[i] / (people.length-1)).toFixed(2)
+      $("#chessCnt2" + i).html(cnt)
+    }
+    /* model */
+
+    var modal = document.getElementById("myModal");
+    $(document).ready(function(){
+      $(".close").click(function(){
+        modal.style.display = "none";
+        restart();
+      });
+      window.onclick = function(event) {
+        if (event.target == modal) {
+          modal.style.display = "none";
+          restart();
+        }
+      }
+      $(".show").click(function(){
+        let row = this.id.slice(0, 9);
+        let col = this.id.slice(9, 18);
+        let data = results[row + ".pl"][col + ".pl"]
+        let winner = data[0];
+        let result = data[1];
+        let process = '<ol>';
+        data[2].forEach(element => {
+          var i = element.match(/\d+/)[0];
+          var j = element.replace(i, '').match(/\d+/)[0];
+          setChess(i, j)
+          process += '<li>'
+          process += element;
+          process += '</li>';
+        });
+        process += '</ol>';
+        if(winner != "Tie"){
+          winner = String(winner.split('submissions/')[1]);
+          winner = String(winner.split('.pl')[0]);
+        }else{
+          result = "Tie"
+        }
+        $("#title").html(row + "(先) V.S. " + col + "(後)");
+        $("#winner").html(winner);
+        $("#result").html(result);
+        $("#process").html(process);
+        modal.style.display = "block";
+      })
+    });
+  })
+
+function genTable(people){
+  let tbody = document.createElement('tbody');
+  let thead = document.createElement('thead');
+  let table = document.createElement('table');
+
+  for(row in people){
+    let tr = document.createElement('tr');
+    let td = document.createElement('td');
+    td.textContent = people[row]; // 這局先手
+    td.className = "table-primary";
+    tr.appendChild(td);
+    let td_first = document.createElement('td');
+    td_first.textContent = 'first'; // 先手勝率
+    td_first.className = "table-info";
+    td_first.id = "first" + people[row];
+    tr.appendChild(td_first);
+    let td_second = document.createElement('td');
+    td_second.textContent = 'second'; // 後手勝率
+    td_second.className = "table-info";
+    td_second.id = "second" + people[row];
+    tr.appendChild(td_second);
+    let td_chessCnt = document.createElement('td');
+    td_chessCnt.textContent = 'chessCnt'; // 先手平均步數
+    td_chessCnt.className = "table-info";
+    td_chessCnt.id = "chessCnt" + people[row];
+    tr.appendChild(td_chessCnt);
+    let td_chessCnt2 = document.createElement('td');
+    td_chessCnt2.textContent = 'chessCnt2'; // 後手平均步數
+    td_chessCnt2.className = "table-info";
+    td_chessCnt2.id = "chessCnt2" + people[row];
+    tr.appendChild(td_chessCnt2);
+    let firstWin = 0;
+    let chessCnt = 0;
+    for(col in people){// each row data
+      let td = document.createElement('td');
+      if(results[people[row] + ".pl"] && people[row] != people[col] && results[people[row] + ".pl"][people[col] + ".pl"]){
+        try{
+          let win = results[people[row] + ".pl"][people[col] + ".pl"][0];
+          win = String(win.split('submissions/')[1]);
+          win = String(win.split('.pl')[0]);
+          chessCnt += results[people[row] + ".pl"][people[col] + ".pl"][2].length;
+          Cnt_second[people[col]] += results[people[row] + ".pl"][people[col] + ".pl"][2].length;
+          if(win == people[row]){
+            firstWin += 1;
+            td.textContent = 'O';
+            td.className = "show table-success text-success";
+          }else if(win == people[col]){
+            win_second[people[col]] += 1;
+            td.textContent = 'X';
+            td.className = "show table-danger text-danger";
+          }else{
+            td.textContent = 'T';
+            td.className = "show table-warning text-warning";
+          }
+        }catch(err){
+          console.log(err)
+        }
+      }else{
+        td.textContent = '-';
+        td.className = "table-secondary";
+      }
+      td.id = people[row] + people[col];
+      tr.appendChild(td);
+    }
+    td_first.textContent = (firstWin / (people.length-1)).toFixed(3)
+    td_chessCnt.textContent = (chessCnt / (people.length-1)).toFixed(2)
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  // 將所有資料列的欄位轉成thead
+  let headerTr = document.createElement('tr')
+  let th = document.createElement('th')
+  th.textContent = '先手\\後手';
+  th.className = "table-secondary"
+  headerTr.appendChild(th)
+  th = document.createElement('th')
+  th.textContent = '先手勝率';
+  th.className = "table-secondary"
+  headerTr.appendChild(th)
+  th = document.createElement('th')
+  th.textContent = '後手勝率';
+  th.className = "table-secondary"
+  headerTr.appendChild(th)
+  th = document.createElement('th')
+  th.textContent = '先手平均步數';
+  th.className = "table-secondary"
+  headerTr.appendChild(th)
+  th = document.createElement('th')
+  th.textContent = '後手平均步數';
+  th.className = "table-secondary"
+  headerTr.appendChild(th)
+  for(row in people){
+    let th = document.createElement('th')
+    th.textContent = people[row]
+    th.className = "table-primary"
+    headerTr.appendChild(th)
+  }
+  // 新增thead到table上
+  thead.appendChild(headerTr);
+  table.appendChild(thead);
+  table.className = "table table-hover text-center";
+  return table;
+}
+
+/* 以下高能...繪製五子棋棋盤*/
+
+var chessboard = document.getElementsByClassName('chessboard')[0];
+var point = document.getElementsByClassName('point')[0];
+var color = 'black';
+var dataArr = [];
+//chessboard.onclick = setChess;
+function createBoard () {
+    for(var i = 0; i < 15; i++) {
+        dataArr[i] = [];
+        for(var j = 0; j < 15; j++){
+            var _div = document.createElement('div');
+            _div.className = 'chess'; 
+            
+            //id 用于方便后面棋子落位数据获取以及输赢判断的需要
+            _div.id = 'location-' + i + '-' + j;
+            chessboard.appendChild(_div);
+
+            if(i == 0){
+                _div.className += ' top';
+            }
+            if(i == 14){
+                _div.className += ' bottom';
+            }
+            if(j == 0){
+                _div.className += ' left';
+            }
+            if(j == 14){
+                _div.className += ' right';
+            }
+            
+        }
+    }
+}
+createBoard();
+//落棋，绘制棋子
+function setChess(i, j) {
+  try{
+    i = i - 1;
+    j = j - 1;
+    let id = "#location-" + i + "-" + j;
+    if(!$(id).hasClass("active")){
+      $(id).addClass(' active ' + color);
+      dataArr[i][j] = color;
+      //改变下一步棋子的颜色
+      color = color == 'black' ? 'white' : 'black';
+    }
+  }catch(err){
+    console.log(err)
+  }
+}
+function restart () {
+    //清空数据
+    for(var i = 0; i < 15; i++) {
+        var restartArr = [];
+        for(var j = 0; j < 15; j++){
+            restartArr.push('');
+        }
+        dataArr[i] = restartArr;
+    }
+
+    //恢复游戏默认属性
+    color = 'black';
+
+    //清空棋子
+    var divCollection = chessboard.getElementsByTagName('div');
+    var len = divCollection.length;
+    var divClassName;
+
+    for(var i = 0; i < len; i++){
+        divClassName = divCollection[i].className;
+        
+        //通过对类名的判断筛选来恢复类名达到视觉上清空棋子
+        if(divClassName.indexOf('active black') != -1){
+            divClassName = divClassName.replace('active black','');
+            divCollection[i].className = divClassName;
+        }
+
+        if(divClassName.indexOf('active white') != -1){
+            divClassName = divClassName.replace('active white','');
+            divCollection[i].className = divClassName;
+        }
+    }
+}
+</script>
+
+<style>
+  body {font-family: Arial, Helvetica, sans-serif;}
+  
+  /* The Modal (background) */
+  .modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    padding-top: 100px; /* Location of the box */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0,0,0); /* Fallback color */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+  }
+  
+  /* Modal Content */
+  .modal-content {
+    background-color: #fefefe;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+  }
+  
+  /* The Close Button */
+  .close {
+    color: #aaaaaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+  }
+  
+  .close:hover,
+  .close:focus {
+    color: #000;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .show:hover,
+  .show:focus{
+    font-weight: bold;
+    cursor: pointer;
+  }
+  .table-danger:hover,
+  .table-danger:focus{
+    background-color: #ff9999;
+  }
+  .table-success:hover,
+  .table-success:focus{
+    background-color: #66ff99;
+  }
+  .table-warning:hover,
+  .table-warning:focus{
+    background-color: #FFFF00;
+  }
+  </style>
